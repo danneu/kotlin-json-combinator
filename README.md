@@ -1,5 +1,5 @@
 
-# json-combinator
+# kotlin-json-combinator [![Jitpack](https://jitpack.io/v/com.danneu/kotlin-json-combinator.svg)](https://jitpack.io/#com.danneu/kotlin-json-combinator) [![Build Status](https://travis-ci.org/danneu/kotlin-json-combinator.svg?branch=master)](https://travis-ci.org/danneu/kotlin-json-combinator)
 
 JSON decode/encode combinators for Kotlin.
 
