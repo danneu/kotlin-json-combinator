@@ -55,8 +55,8 @@ Here are some ways to get the `JsonValue` out.
     JD.parse("[1,2,3]").getOrElse(emptyList()) == listOf(1, 2, 3)
     JD.parse("bad json").getOrElse(emptyList()) == emptyList()
     ```
-   
-- With `Result`'s `.map`/`.fold`:
+    
+- With `Result`'s `.map`:
 
     ```kotlin
     JD.parse("[1,2,3]").map { nums ->
@@ -66,16 +66,22 @@ Here are some ways to get the `JsonValue` out.
     JD.parse("bad json").map { nums ->
       // will not reach this
     }
+    ```
+    
+- With `Result`'s `.fold`:
   
-    JD.parse("[1,2,3]").fold(
+    ```kotlin
+    val sum = JD.parse("[1,2,3]").fold(
       { nums ->
-          nums == listOf(1, 2, 3)
+          nums.fold(0, { a, b -> a + b })
       }, 
       { err ->
         // will not reach this
+        0
       }
     )
     ```
+   
 
 ### Decoding
 
