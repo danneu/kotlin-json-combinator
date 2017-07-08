@@ -1,4 +1,4 @@
-package com.danneu.json.combinator
+package com.danneu.json
 
 import com.eclipsesource.json.Json as MJson
 import com.eclipsesource.json.JsonObject as MJsonObject

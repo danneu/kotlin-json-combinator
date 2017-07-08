@@ -24,9 +24,9 @@ dependencies {
 ## Usage
 
 ```kotlin
-import com.danneu.json.combinator.Decode as JD
-import com.danneu.json.combinator.Encode as JE
-import com.danneu.json.combinator.JsonValue // Opaque
+import com.danneu.json.Decode as JD
+import com.danneu.json.Encode as JE
+import com.danneu.json.JsonValue // Opaque
 ```
 
 ### Parsing

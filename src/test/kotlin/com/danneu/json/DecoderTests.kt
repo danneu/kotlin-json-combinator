@@ -1,4 +1,4 @@
-package com.danneu.json.combinator
+package com.danneu.json
 
 import com.danneu.result.Result
 import com.eclipsesource.json.Json

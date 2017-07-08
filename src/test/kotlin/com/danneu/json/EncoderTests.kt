@@ -1,6 +1,6 @@
-package com.danneu.json.combinator
+package com.danneu.json
 
-import com.danneu.json.combinator.Encoder as JE
+import com.danneu.json.Encoder as JE
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
