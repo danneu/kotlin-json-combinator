@@ -6,300 +6,361 @@ import com.eclipsesource.json.Json
 import com.eclipsesource.json.JsonValue
 import java.io.Reader
 
-// TODO: Rewrite collection validators so that they short-circuit on failure instead of failing
-//       after running a decoder on each item.
+class Decoder <out T> (val decode: (JsonValue) -> Result<T, String>) {
+    operator fun invoke(value: JsonValue) = decode(value)
 
-class Decoder <out T> (val decode: (JsonValue) -> Result<T, Exception>) {
-    /** Decoders can be applied like functions.
-     */
-    operator fun invoke(value: JsonValue): Result<T, Exception> {
-        return decode(value)
-    }
-
-    /** Specify the decoder to use based on the result of the previous decoder.
-     */
-    fun <B> flatMap(f: (T) -> Decoder<B>): Decoder<B> = Decoder { value ->
-        this.decode(value).flatMap { success: T ->
-            f(success).decode(value)
+    fun <T2> andThen(f: (T) -> Decoder<T2>): Decoder<T2> = Decoder { jsonValue ->
+        decode(jsonValue).flatMap { success ->
+            f(success).let { nextDecoder ->
+                nextDecoder(jsonValue)
+            }
         }
     }
 
+    fun <T2> map(f: (T) -> T2): Decoder<T2> = Decoder {
+        decode(it).map(f)
+    }
 
-    /** Apply a function to the decoded value on successful decode.
-     */
-    fun <B> map(f: (T) -> B): Decoder<B> = Decoder { value ->
-        this.decode(value).map { success: T ->
-            f(success)
-        }
+    fun mapError(f: (String) -> String): Decoder<T> = Decoder {
+        decode(it).mapError(f)
     }
 
     companion object {
         // PARSING
 
-        fun parse(reader: Reader): Result<JsonValue, Exception> {
+        fun parse(reader: Reader): Result<JsonValue, String> {
             return Result.ok(Json.parse(reader))
         }
 
-        fun parse(string: String): Result<JsonValue, Exception> {
+        fun parse(string: String): Result<JsonValue, String> {
             return Result.ok(Json.parse(string))
         }
 
         // DECODERS
 
-        fun <A> get(key: String, d1: Decoder<A>): Decoder<A> = Decoder {
+        fun <A> lazy(getDecoder: () -> Decoder<A>): Decoder<A> = Decoder { getDecoder().decode(it) }
+
+        fun <A> get(key: String, decoder: Decoder<A>): Decoder<A> = Decoder {
             when {
                 it.isObject ->
-                    it.asObject().get(key)?.let { d1(it) }
-                        ?: Result.err(Exception("Expected field \"$key\" but it was missing"))
+                    it.asObject().get(key)?.let(decoder.decode) ?:
+                        Result.err("Expected field \"$key\" but it was missing")
                 else ->
-                    Result.err(Exception("Expected object but got ${it.javaClass.simpleName}"))
-            }
-        }
-
-        fun <A, B> map(d1: Decoder<A>, f: (A) -> B): Decoder<B> = Decoder { value ->
-            d1.decode(value).map { success: A ->
-                f(success)
-            }
-        }
-
-        // Decoder.map2(int, int, { a, b -> a + b })
-        fun <A, B, C> map2(d1: Decoder<A>, d2: Decoder<B>, f: (A, B) -> C): Decoder<C> = Decoder { value ->
-            d1.decode(value).flatMap { a ->
-                d2.decode(value).map { b ->
-                    f(a, b)
-                }
+                    Result.err("Expected object but got ${it.javaClass.simpleName}")
             }
         }
 
         val string: Decoder<String> = Decoder {
             when {
-                it.isString -> Result.ok(it.asString())
-                else -> Result.err(Exception("Expected String but got ${it.javaClass.simpleName}"))
+                it.isString ->
+                    Result.ok(it.asString())
+                else ->
+                    Result.err("Expected String but got ${it.javaClass.simpleName}")
             }
         }
 
         val int: Decoder<Int> = Decoder {
             when {
-                it.isNumber -> Result.ok(it.asInt())
-                else -> Result.err(Exception("Expected Int but got ${it.javaClass.simpleName}"))
+                it.isNumber ->
+                    Result.ok(it.asInt())
+                else ->
+                    Result.err("Expected Int but got ${it.javaClass.simpleName}")
             }
         }
 
         val float: Decoder<Float> = Decoder {
             when {
-                it.isNumber -> Result.ok(it.asFloat())
-                else -> Result.err(Exception("Expected Float but got ${it.javaClass.simpleName}"))
+                it.isNumber ->
+                    Result.ok(it.asFloat())
+                else ->
+                    Result.err("Expected Float but got ${it.javaClass.simpleName}")
             }
         }
 
         val double: Decoder<Double> = Decoder {
             when {
-                it.isNumber -> Result.ok(it.asDouble())
-                else -> Result.err(Exception("Expected Double but got ${it.javaClass.simpleName}"))
+                it.isNumber ->
+                    Result.ok(it.asDouble())
+                else ->
+                    Result.err("Expected Double but got ${it.javaClass.simpleName}")
             }
         }
 
         val long: Decoder<Long> = Decoder {
             when {
-                it.isNumber -> Result.ok(it.asLong())
-                else -> Result.err(Exception("Expected Long but got ${it.javaClass.simpleName}"))
+                it.isNumber ->
+                    Result.ok(it.asLong())
+                else ->
+                    Result.err("Expected Long but got ${it.javaClass.simpleName}")
             }
         }
 
 
         val bool: Decoder<Boolean> = Decoder {
             when {
-                it.isBoolean -> Result.ok(it.asBoolean())
-                else -> Result.err(Exception("Expected Bool but got ${it.javaClass.simpleName}"))
+                it.isBoolean ->
+                    Result.ok(it.asBoolean())
+                else ->
+                    Result.err("Expected Bool but got ${it.javaClass.simpleName}")
             }
         }
 
-        fun <T> `null`(defaultValue: T): Decoder<T> = Decoder {
+        fun <T> whenNull(default: T): Decoder<T> = Decoder {
             when {
-                it.isNull -> Result.ok(defaultValue)
-                else -> Result.err(Exception("Expected null but got ${it.javaClass.simpleName}"))
+                it.isNull ->
+                    Result.ok(default)
+                else ->
+                    Result.err("Expected null but got ${it.javaClass.simpleName}")
             }
         }
 
-        fun <T> nullable(d1: Decoder<T>): Decoder<T?> = Decoder { value ->
+        fun <T> nullable(decoder: Decoder<T>): Decoder<T?> = Decoder {
             when {
-                value.isNull -> Result.ok(null)
-                else -> d1.decode(value)
+                it.isNull ->
+                    Result.ok(null)
+                else ->
+                    decoder(it)
             }
         }
 
-        fun <A> listOf(d1: Decoder<A>): Decoder<List<A>> = Decoder {
+        fun <A> listOf(decoder: Decoder<A>): Decoder<List<A>> = Decoder { jsonValue ->
             when {
-                it.isArray -> {
+                jsonValue.isArray ->
                     // Short-circuit on first decode fail
-                    it.asArray().map { value ->
-                        val result = d1(value)
-                        when (result) {
-                            is Result.Err ->
-                                @Suppress("UNCHECKED_CAST")
-                                return@Decoder result as Result.Err<List<A>, Exception>
-                            is Result.Ok ->
-                                result.value
+                    jsonValue.asArray().map { value ->
+                        decoder(value).let { result ->
+                            when (result) {
+                                is Result.Err ->
+                                    return@Decoder Result.err(result.error)
+                                is Result.Ok ->
+                                    result.value
+                            }
                         }
-                    }.let { Result.ok(it) }
+                    }.let(Result.Companion::ok)
+                else ->
+                    Result.err("Expected JSON array but got ${jsonValue.javaClass.simpleName}")
+            }
+        }
+
+        inline fun <reified A> arrayOf(decoder: Decoder<A>): Decoder<Array<A>> = listOf(decoder).map { it.toTypedArray() }
+
+        fun <A> keyValuePairs(decoder: Decoder<A>): Decoder<List<Pair<String, A>>> = Decoder { jsonValue ->
+            when {
+                jsonValue.isObject ->
+                    jsonValue.asObject().map { member ->
+                        decoder(member.value).map { member.name to it }.let { result ->
+                            when (result) {
+                                is Result.Err ->
+                                    return@Decoder Result.err(result.error)
+                                is Result.Ok ->
+                                    result.value
+                            }
+                        }
+                    }.let(Result.Companion::ok)
+                else ->
+                    Result.err("Expected JSON object but got ${jsonValue.javaClass.simpleName}")
+            }
+        }
+
+        fun <A> mapOf(decoder: Decoder<A>): Decoder<Map<String, A>> = keyValuePairs(decoder).map { it.toMap() }
+
+        fun <A, B> pairOf(left: Decoder<A>, right: Decoder<B>): Decoder<Pair<A, B>> = Decoder { jsonValue ->
+            when {
+                jsonValue.isArray -> {
+                    jsonValue.asArray().let { array ->
+                        if (array.size() == 2) {
+                            left(array[0]).flatMap { v1 ->
+                                right(array[1]).map { v2 ->
+                                    v1 to v2
+                                }
+                            }
+                        } else {
+                            Result.err("Expected Pair but got array with ${array.size()} items")
+                        }
+
+                    }
                 }
                 else ->
-                    Result.err(Exception("Expected JSON array but got ${it.javaClass.simpleName}"))
+                    Result.err("Expected Pair but got ${jsonValue.javaClass.simpleName}")
             }
         }
 
-        inline fun <reified A> arrayOf(d1: Decoder<A>): Decoder<Array<A>> = this.listOf(d1).map { it.toTypedArray() }
-
-        fun <A> keyValuePairs(d1: Decoder<A>): Decoder<List<Pair<String, A>>> = Decoder {
+        fun <A, B, C> tripleOf(d1: Decoder<A>, d2: Decoder<B>, d3: Decoder<C>): Decoder<Triple<A, B, C>> = Decoder { jsonValue ->
             when {
-                it.isObject -> {
-                    // Short-circuit on first decode fail
-                    it.asObject().map { member ->
-                        val result = d1(member.value).map { value -> member.name to value }
-                        when (result) {
-                            is Result.Err ->
-                                @Suppress("UNCHECKED_CAST")
-                                return@Decoder result as Result.Err<List<Pair<String, A>>, Exception>
-                            is Result.Ok ->
-                                result.value
-                        }
-                    }.let { pairs -> Result.ok(pairs) }
-                }
-                else -> Result.err(Exception("Expected JSON object but got ${it.javaClass.simpleName}"))
-            }
-        }
-
-        fun <A> mapOf(d1: Decoder<A>): Decoder<Map<String, A>> = keyValuePairs(d1).map { it.toMap() }
-
-        fun <A, B> pairOf(left: Decoder<A>, right: Decoder<B>): Decoder<Pair<A, B>> = Decoder {
-            when {
-                it.isArray -> {
-                    val array = it.asArray()
-                    if (array.size() == 2) {
-                        Result.all(left(array[0]), right(array[1])).map { vals ->
-                            @Suppress("UNCHECKED_CAST")
-                            (vals[0] as A) to (vals[1] as B)
-                        }
-                    } else {
-                        Result.err(Exception("Expected Pair but got array with ${array.size()} items"))
-                    }
-                }
-                else -> Result.err(Exception("Expected Pair but got ${it.javaClass.simpleName}"))
-            }
-        }
-
-        fun <A, B, C> triple(d1: Decoder<A>, d2: Decoder<B>, d3: Decoder<C>): Decoder<Triple<A, B, C>> = Decoder {
-            when {
-                it.isArray -> {
-                    val array = it.asArray()
-                    if (array.size() == 3) {
-                        Result.all(d1(array[0]), d2(array[1]), d3(array[2])).map { vals ->
-                            @Suppress("UNCHECKED_CAST")
-                            Triple(vals[0] as A, vals[1] as B, vals[2] as C)
-                        }
-                    } else {
-                        Result.err(Exception("Expected Triple but got array with ${array.size()} items"))
-                    }
-                }
-                else -> Result.err(Exception("Expected Pair but got ${it.javaClass.simpleName}"))
-            }
-        }
-
-
-        fun <A> getIn(keys: List<String>, d1: Decoder<A>): Decoder<A> {
-            return keys.foldRight(d1, { k, a -> get(k ,a) })
-        }
-
-
-        fun <A> index(i: Int, d1: Decoder<A>): Decoder<A> {
-            return Decoder {
-                when {
-                    it.isArray -> {
-                        val array = it.asArray()
-                        if (i >= 0 && i < array.size()) {
-                            d1(array.get(i))
+                jsonValue.isArray ->
+                    jsonValue.asArray().let { array ->
+                        if (array.size() == 3) {
+                            d1(array[0]).flatMap { v1 ->
+                                d2(array[1]).flatMap { v2 ->
+                                    d3(array[2]).map { v3 ->
+                                        Triple(v1, v2, v3)
+                                    }
+                                }
+                            }
                         } else {
-                            Result.err(Exception("Expected index $i to be in bounds of array"))
+                            Result.err("Expected Triple but got array with ${array.size()} items")
                         }
                     }
-                    else -> Result.err(Exception("Expected Array but got ${it.javaClass.simpleName}"))
+                else ->
+                    Result.err("Expected Pair but got ${jsonValue.javaClass.simpleName}")
+            }
+        }
+
+
+        fun <A> getIn(keys: List<String>, decoder: Decoder<A>): Decoder<A> {
+            return keys.foldRight(decoder, { k, a -> get(k ,a) })
+        }
+
+
+        fun <A> index(i: Int, decoder: Decoder<A>): Decoder<A> {
+            return Decoder { jsonValue ->
+                when {
+                    jsonValue.isArray ->
+                        jsonValue.asArray().let { array ->
+                            if (i >= 0 && i < array.size()) {
+                                decoder(array.get(i))
+                            } else {
+                                Result.err("Expected index $i to be in bounds of array")
+                            }
+                        }
+                    else ->
+                        Result.err("Expected Array but got ${jsonValue.javaClass.simpleName}")
                 }
             }
         }
 
-        fun <A> oneOf(vararg ds: Decoder<A>): Decoder<A> = Decoder { value ->
-            ds.asSequence().map { it(value) }.find { it is Result.Ok }
-                ?: Result.Err(Exception("None of the decoders matched"))
+        fun <A> oneOf(decoders: Iterable<Decoder<A>>): Decoder<A> = Decoder { jsonValue ->
+            for (decoder in decoders) {
+                decoder(jsonValue).let { result ->
+                    if (result is Result.Ok) {
+                        return@Decoder result
+                    }
+                }
+            }
+
+            Result.err("None of the decoders matched")
         }
 
-        // TODO: Generalize `object` function and allow chaining.
-        fun <A, Z> object1(f: (A) -> Z, d1: Decoder<A>): Decoder<Z> {
+        fun <A> oneOf(vararg decoders: Decoder<A>): Decoder<A> = Companion.oneOf(decoders.asIterable())
+
+        // MAPPING
+
+        // TODO: Generalize `mapN` function and allow chaining.
+
+        fun <V1, T> map(f: (V1) -> T, d1: Decoder<V1>): Decoder<T> = Decoder { value ->
+            d1(value).map { v1 ->
+                f(v1)
+            }
+        }
+
+        fun <V1, V2, T> map2(f: (V1, V2) -> T, d1: Decoder<V1>, d2: Decoder<V2>): Decoder<T> {
             return Decoder { value ->
-                Result.all(d1(value)).map { vals ->
-                    f(vals[0])
+                d1(value).flatMap { v1 ->
+                    d2(value).map {v2 ->
+                        f(v1, v2)
+                    }
                 }
             }
         }
 
-        fun <A, B, Z> object2(f: (A, B) -> Z, d1: Decoder<A>, d2: Decoder<B>): Decoder<Z> {
+        fun <V1, V2, V3, T> map3(f: (V1, V2, V3) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>): Decoder<T> {
             return Decoder { value ->
-                Result.all(d1(value), d2(value)).map { vals ->
-                    @Suppress("UNCHECKED_CAST")
-                    f(vals[0] as A, vals[1] as B)
+                d1(value).flatMap { v1 ->
+                    d2(value).flatMap { v2 ->
+                        d3(value).map { v3 ->
+                            f(v1, v2, v3)
+                        }
+                    }
                 }
             }
         }
 
-        fun <A, B, C, Z> object3(f: (A, B, C) -> Z, d1: Decoder<A>, d2: Decoder<B>, d3: Decoder<C>): Decoder<Z> {
+        fun <V1, V2, V3, V4, T> map4(f: (V1, V2, V3, V4) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>, d4: Decoder<V4>): Decoder<T> {
             return Decoder { value ->
-                Result.all(d1(value), d2(value), d3(value)).map { vals ->
-                    @Suppress("UNCHECKED_CAST")
-                    f(vals[0] as A, vals[1] as B, vals[2] as C)
+                d1(value).flatMap { v1 ->
+                    d2(value).flatMap { v2 ->
+                        d3(value).flatMap { v3 ->
+                            d4(value).map { v4 ->
+                                f(v1, v2, v3, v4)
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        fun <A, B, C, D, Z> object4(f: (A, B, C, D) -> Z, d1: Decoder<A>, d2: Decoder<B>, d3: Decoder<C>, d4: Decoder<D>): Decoder<Z> {
+        fun <V1, V2, V3, V4, V5, T> map5(f: (V1, V2, V3, V4, V5) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>, d4: Decoder<V4>, d5: Decoder<V5>): Decoder<T> {
             return Decoder { value ->
-                Result.all(d1(value), d2(value), d3(value), d4(value)).map { vals ->
-                    @Suppress("UNCHECKED_CAST")
-                    f(vals[0] as A, vals[1] as B, vals[2] as C, vals[3] as D)
+                d1(value).flatMap { v1 ->
+                    d2(value).flatMap { v2 ->
+                        d3(value).flatMap { v3 ->
+                            d4(value).flatMap { v4 ->
+                                d5(value).map { v5 ->
+                                    f(v1, v2, v3, v4, v5)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        fun <A, B, C, D, E, Z> object5(f: (A, B, C, D, E) -> Z, d1: Decoder<A>, d2: Decoder<B>, d3: Decoder<C>, d4: Decoder<D>, d5: Decoder<E>): Decoder<Z> {
+        fun <V1, V2, V3, V4, V5, V6, T> map6(f: (V1, V2, V3, V4, V5, V6) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>, d4: Decoder<V4>, d5: Decoder<V5>, d6: Decoder<V6>): Decoder<T> {
             return Decoder { value ->
-                Result.all(d1(value), d2(value), d3(value), d4(value), d5(value)).map { vals ->
-                    @Suppress("UNCHECKED_CAST")
-                    f(vals[0] as A, vals[1] as B, vals[2] as C, vals[3] as D, vals[4] as E)
+                d1(value).flatMap { v1 ->
+                    d2(value).flatMap { v2 ->
+                        d3(value).flatMap { v3 ->
+                            d4(value).flatMap { v4 ->
+                                d5(value).flatMap { v5 ->
+                                    d6(value).map { v6 ->
+                                        f(v1, v2, v3, v4, v5, v6)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        fun <A, B, C, D, E, F, Z> object6(f: (A, B, C, D, E, F) -> Z, d1: Decoder<A>, d2: Decoder<B>, d3: Decoder<C>, d4: Decoder<D>, d5: Decoder<E>, d6: Decoder<F>): Decoder<Z> {
+        fun <V1, V2, V3, V4, V5, V6, V7, T> map7(f: (V1, V2, V3, V4, V5, V6, V7) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>, d4: Decoder<V4>, d5: Decoder<V5>, d6: Decoder<V6>, d7: Decoder<V7>): Decoder<T> {
             return Decoder { value ->
-                Result.all(d1(value), d2(value), d3(value), d4(value), d5(value), d6(value)).map { vals ->
-                    @Suppress("UNCHECKED_CAST")
-                    f(vals[0] as A, vals[1] as B, vals[2] as C, vals[3] as D, vals[4] as E, vals[5] as F)
+                d1(value).flatMap { v1 ->
+                    d2(value).flatMap { v2 ->
+                        d3(value).flatMap { v3 ->
+                            d4(value).flatMap { v4 ->
+                                d5(value).flatMap { v5 ->
+                                    d6(value).flatMap { v6 ->
+                                        d7(value).map { v7 ->
+                                            f(v1, v2, v3, v4, v5, v6, v7)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        fun <A, B, C, D, E, F, G, Z> object7(f: (A, B, C, D, E, F, G) -> Z, d1: Decoder<A>, d2: Decoder<B>, d3: Decoder<C>, d4: Decoder<D>, d5: Decoder<E>, d6: Decoder<F>, d7: Decoder<G>): Decoder<Z> {
+        fun <V1, V2, V3, V4, V5, V6, V7, V8, T> map8(f: (V1, V2, V3, V4, V5, V6, V7, V8) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>, d4: Decoder<V4>, d5: Decoder<V5>, d6: Decoder<V6>, d7: Decoder<V7>, d8: Decoder<V8>): Decoder<T> {
             return Decoder { value ->
-                Result.all(d1(value), d2(value), d3(value), d4(value), d5(value), d6(value), d7(value)).map { vals ->
-                    @Suppress("UNCHECKED_CAST")
-                    f(vals[0] as A, vals[1] as B, vals[2] as C, vals[3] as D, vals[4] as E, vals[5] as F, vals[6] as G)
-                }
-            }
-        }
-
-        fun <A, B, C, D, E, F, G, H, Z> object8(f: (A, B, C, D, E, F, G, H) -> Z, d1: Decoder<A>, d2: Decoder<B>, d3: Decoder<C>, d4: Decoder<D>, d5: Decoder<E>, d6: Decoder<F>, d7: Decoder<G>, d8: Decoder<H>): Decoder<Z> {
-            return Decoder { value ->
-                Result.all(d1(value), d2(value), d3(value), d4(value), d5(value), d6(value), d7(value), d8(value)).map { vals ->
-                    @Suppress("UNCHECKED_CAST")
-                    f(vals[0] as A, vals[1] as B, vals[2] as C, vals[3] as D, vals[4] as E, vals[5] as F, vals[6] as G, vals[7] as H)
+                d1(value).flatMap { v1 ->
+                    d2(value).flatMap { v2 ->
+                        d3(value).flatMap { v3 ->
+                            d4(value).flatMap { v4 ->
+                                d5(value).flatMap { v5 ->
+                                    d6(value).flatMap { v6 ->
+                                        d7(value).flatMap { v7 ->
+                                            d8(value).map { v8 ->
+                                                f(v1, v2, v3, v4, v5, v6, v7, v8)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -309,9 +370,7 @@ class Decoder <out T> (val decode: (JsonValue) -> Result<T, Exception>) {
         }
 
         fun <T> fail(message: String): Decoder<T> = Decoder {
-            Result.err(Exception(message))
+            Result.err(message)
         }
     }
 }
-
-

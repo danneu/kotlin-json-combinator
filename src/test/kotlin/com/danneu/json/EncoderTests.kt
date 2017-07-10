@@ -4,10 +4,6 @@ import com.danneu.json.Encoder as JE
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-fun main(args: Array<String>) {
-    val x: JsonValue = JsonValue.Null
-}
-
 class EncoderTests {
     @Test
     fun testString() {

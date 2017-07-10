@@ -54,7 +54,7 @@ class DecoderTests {
 
     @Test
     fun testTriple() {
-        val decoder = Decoder.triple(Decoder.int, Decoder.bool, Decoder.string)
+        val decoder = Decoder.tripleOf(Decoder.int, Decoder.bool, Decoder.string)
         """[1, true, "x"]""".ok(Triple(1, true, "x"), decoder)
         """["x", true, 1]""".err(decoder)
         """[true, "x", 1]""".err(decoder)
@@ -86,27 +86,10 @@ class DecoderTests {
     }
 
     @Test
-    fun testMap() {
-        """{"a": 1, "b": 2}""".ok(3, Decoder.map(
-            Decoder.get("b", Decoder.int),
-            { a -> a + 1 }
-        ))
-    }
-
-    @Test
-    fun testMap2() {
-        """{"a": 1, "b": 2}""".ok(3, Decoder.map2(
-            Decoder.get("a", Decoder.int),
-            Decoder.get("b", Decoder.int),
-            { a, b -> a + b }
-        ))
-    }
-
-    @Test
     fun testGet() {
         """{ "a": 42 }""".apply {
             ok(42, Decoder.get("a", Decoder.int))
-            ok(42, Decoder.object1({ x -> x }, Decoder.get("a", Decoder.int)))
+            ok(42, Decoder.map({ x -> x }, Decoder.get("a", Decoder.int)))
             err(Decoder.get("a", Decoder.string))
             err(Decoder.get("notfound", Decoder.int))
         }
@@ -116,7 +99,7 @@ class DecoderTests {
     fun testObjectBasic() {
         data class Creds(val uname: String, val password: String)
 
-        val decoder = Decoder.object2(
+        val decoder = Decoder.map2(
             ::Creds,
             Decoder.getIn(listOf("user", "uname"), Decoder.string),
             Decoder.get("password", Decoder.string)
@@ -142,19 +125,22 @@ class DecoderTests {
     }
 
     @Test
-    fun testFlatMap() {
+    fun testAndThen() {
         // the "version" tells us how to decode the "test".
         val decoder = Decoder.get("version", Decoder.int)
-            .flatMap { version: Int ->
-                when (version) {
-                    3 -> Decoder.get("test", Decoder.string.map(String::reversed))
-                    4 -> Decoder.get("test", Decoder.string)
+            .andThen { version ->
+                val subDecoder = when (version) {
+                    3 -> Decoder.string.map(String::reversed)
+                    4 -> Decoder.string
                     else -> Decoder.fail("version $version is not supported")
                 }
+
+                Decoder.get("test", subDecoder)
             }
 
+
         decoder.apply {
-            ok("oof", """{"version": 3, "test": "foo"}""")
+            ok("foo", """{"version": 3, "test": "oof"}""")
             ok("foo", """{"version": 4, "test": "foo"}""")
             err("""{"version": 5, "test": "foo"}""")
         }
@@ -173,9 +159,19 @@ class DecoderTests {
     }
 
     @Test
-    fun testNull() {
-        "null".ok(42, Decoder.`null`(42))
-        "42".err(Decoder.`null`(42))
+    fun testWhenNull() {
+        "null".ok(42, Decoder.whenNull(42))
+        "42".err(Decoder.whenNull(42))
+
+        // Using whenNull + oneOf for default value
+        val decoder = Decoder.oneOf(
+            Decoder.int,
+            Decoder.whenNull(-1)
+        )
+
+        assertEquals(Result.ok(42), decoder(Decoder.parse("42").getOrThrow()))
+        assertEquals(Result.ok(-1), decoder(Decoder.parse("null").getOrThrow()))
+        assert(decoder(Decoder.parse("\"foo\"").getOrThrow()) is Result.Err)
     }
 
     @Test
@@ -218,7 +214,24 @@ class DecoderTests {
     }
 
     @Test
-    fun testObjectN() {
+    fun testMapError() {
+        val decoder = Decoder.int.mapError { "transformed" }
+
+        assertEquals(
+            "Does nothing on success",
+            Result.ok(42),
+            decoder(Decoder.parse("42").getOrThrow())
+        )
+
+        assertEquals(
+            "Transform error on failure",
+            Result.err("transformed"),
+            decoder(Decoder.parse("null").getOrThrow())
+        )
+    }
+
+    @Test
+    fun testMapN() {
         val json = """
           {
             "a": 1, "b": 2, "c": 3, "d": 4,
@@ -226,29 +239,29 @@ class DecoderTests {
           }
         """
 
-        json.ok(1, Decoder.object1({ it },
+        json.ok(1, Decoder.map({ it },
             Decoder.get("a", Decoder.int))
         )
 
-        json.ok(3, Decoder.object2({ a, b -> a + b },
+        json.ok(3, Decoder.map2({ a, b -> a + b },
             Decoder.get("a", Decoder.int),
             Decoder.get("b", Decoder.int)
         ))
 
-        json.ok(6, Decoder.object3({ a, b, c -> a + b + c },
+        json.ok(6, Decoder.map3({ a, b, c -> a + b + c },
             Decoder.get("a", Decoder.int),
             Decoder.get("b", Decoder.int),
             Decoder.get("c", Decoder.int)
         ))
 
-        json.ok(10, Decoder.object4({ a, b, c, d -> a + b + c + d },
+        json.ok(10, Decoder.map4({ a, b, c, d -> a + b + c + d },
             Decoder.get("a", Decoder.int),
             Decoder.get("b", Decoder.int),
             Decoder.get("c", Decoder.int),
             Decoder.get("d", Decoder.int)
         ))
 
-        json.ok(15, Decoder.object5({ a, b, c, d, e -> a + b + c + d + e },
+        json.ok(15, Decoder.map5({ a, b, c, d, e -> a + b + c + d + e },
             Decoder.get("a", Decoder.int),
             Decoder.get("b", Decoder.int),
             Decoder.get("c", Decoder.int),
@@ -256,7 +269,7 @@ class DecoderTests {
             Decoder.get("e", Decoder.int)
         ))
 
-        json.ok(21, Decoder.object6({ a, b, c, d, e, f -> a + b + c + d + e + f },
+        json.ok(21, Decoder.map6({ a, b, c, d, e, f -> a + b + c + d + e + f },
             Decoder.get("a", Decoder.int),
             Decoder.get("b", Decoder.int),
             Decoder.get("c", Decoder.int),
@@ -265,7 +278,7 @@ class DecoderTests {
             Decoder.get("f", Decoder.int)
         ))
 
-        json.ok(28, Decoder.object7({ a, b, c, d, e, f, g -> a + b + c + d + e + f + g },
+        json.ok(28, Decoder.map7({ a, b, c, d, e, f, g -> a + b + c + d + e + f + g },
             Decoder.get("a", Decoder.int),
             Decoder.get("b", Decoder.int),
             Decoder.get("c", Decoder.int),
@@ -275,7 +288,7 @@ class DecoderTests {
             Decoder.get("g", Decoder.int)
         ))
 
-        json.ok(36, Decoder.object8({ a, b, c, d, e, f, g, h -> a + b + c + d + e + f + g + h },
+        json.ok(36, Decoder.map8({ a, b, c, d, e, f, g, h -> a + b + c + d + e + f + g + h },
             Decoder.get("a", Decoder.int),
             Decoder.get("b", Decoder.int),
             Decoder.get("c", Decoder.int),

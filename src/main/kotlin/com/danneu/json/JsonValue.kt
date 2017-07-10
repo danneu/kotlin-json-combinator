@@ -1,5 +1,6 @@
 package com.danneu.json
 
+import com.eclipsesource.json.WriterConfig.PRETTY_PRINT
 import com.eclipsesource.json.Json as MJson
 import com.eclipsesource.json.JsonObject as MJsonObject
 import com.eclipsesource.json.JsonArray as MJsonArray
@@ -16,6 +17,8 @@ sealed class JsonValue {
     abstract internal val internal: MJsonValue
 
     override fun toString() = internal.toString()
+
+    fun toPrettyString(): kotlin.String = internal.toString(PRETTY_PRINT)
 
     // MEMBERS
 
@@ -51,6 +54,4 @@ sealed class JsonValue {
         override val internal: MJsonValue = MJson.NULL
     }
 }
-
-
 
