@@ -97,9 +97,9 @@ Here are some ways to get the `JsonValue` out.
     
 - With `Result`'s `.getOrThrow()`:
 
-    Only use this if you know the result had to succeed. 
-    Else it will throw a runtime error which defeats the purpose
-    of this abstraction.
+    Only use this if you know the result had to succeed or if 
+    you want to specifically want to `try/catch` 
+    the `com.danneu.result.UnwrapException` upon failure.
     
     ```kotlin
     JD.parse("[1,2,3]").getOrThrow() == listOf(1, 2, 3)
