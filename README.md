@@ -557,7 +557,7 @@ JSON:
 ```json
 {
   "ok": true,
-  "error": null
+  "error": null,
   "user": {
     "id": 42,
     "username": "foo",
