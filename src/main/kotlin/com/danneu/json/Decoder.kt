@@ -294,7 +294,7 @@ class Decoder <out T> (private val decode: (JsonValue) -> Result<T, String>) {
             }
         }
 
-        fun <V1, V2, T> map2(f: (V1, V2) -> T, d1: Decoder<V1>, d2: Decoder<V2>): Decoder<T> {
+        fun <V1, V2, T> map(f: (V1, V2) -> T, d1: Decoder<V1>, d2: Decoder<V2>): Decoder<T> {
             return Decoder { value ->
                 d1(value).flatMap { v1 ->
                     d2(value).map {v2 ->
@@ -304,7 +304,7 @@ class Decoder <out T> (private val decode: (JsonValue) -> Result<T, String>) {
             }
         }
 
-        fun <V1, V2, V3, T> map3(f: (V1, V2, V3) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>): Decoder<T> {
+        fun <V1, V2, V3, T> map(f: (V1, V2, V3) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>): Decoder<T> {
             return Decoder { value ->
                 d1(value).flatMap { v1 ->
                     d2(value).flatMap { v2 ->
@@ -316,7 +316,7 @@ class Decoder <out T> (private val decode: (JsonValue) -> Result<T, String>) {
             }
         }
 
-        fun <V1, V2, V3, V4, T> map4(f: (V1, V2, V3, V4) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>, d4: Decoder<V4>): Decoder<T> {
+        fun <V1, V2, V3, V4, T> map(f: (V1, V2, V3, V4) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>, d4: Decoder<V4>): Decoder<T> {
             return Decoder { value ->
                 d1(value).flatMap { v1 ->
                     d2(value).flatMap { v2 ->
@@ -330,7 +330,7 @@ class Decoder <out T> (private val decode: (JsonValue) -> Result<T, String>) {
             }
         }
 
-        fun <V1, V2, V3, V4, V5, T> map5(f: (V1, V2, V3, V4, V5) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>, d4: Decoder<V4>, d5: Decoder<V5>): Decoder<T> {
+        fun <V1, V2, V3, V4, V5, T> map(f: (V1, V2, V3, V4, V5) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>, d4: Decoder<V4>, d5: Decoder<V5>): Decoder<T> {
             return Decoder { value ->
                 d1(value).flatMap { v1 ->
                     d2(value).flatMap { v2 ->
@@ -346,7 +346,7 @@ class Decoder <out T> (private val decode: (JsonValue) -> Result<T, String>) {
             }
         }
 
-        fun <V1, V2, V3, V4, V5, V6, T> map6(f: (V1, V2, V3, V4, V5, V6) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>, d4: Decoder<V4>, d5: Decoder<V5>, d6: Decoder<V6>): Decoder<T> {
+        fun <V1, V2, V3, V4, V5, V6, T> map(f: (V1, V2, V3, V4, V5, V6) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>, d4: Decoder<V4>, d5: Decoder<V5>, d6: Decoder<V6>): Decoder<T> {
             return Decoder { value ->
                 d1(value).flatMap { v1 ->
                     d2(value).flatMap { v2 ->
@@ -364,7 +364,7 @@ class Decoder <out T> (private val decode: (JsonValue) -> Result<T, String>) {
             }
         }
 
-        fun <V1, V2, V3, V4, V5, V6, V7, T> map7(f: (V1, V2, V3, V4, V5, V6, V7) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>, d4: Decoder<V4>, d5: Decoder<V5>, d6: Decoder<V6>, d7: Decoder<V7>): Decoder<T> {
+        fun <V1, V2, V3, V4, V5, V6, V7, T> map(f: (V1, V2, V3, V4, V5, V6, V7) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>, d4: Decoder<V4>, d5: Decoder<V5>, d6: Decoder<V6>, d7: Decoder<V7>): Decoder<T> {
             return Decoder { value ->
                 d1(value).flatMap { v1 ->
                     d2(value).flatMap { v2 ->
@@ -384,7 +384,7 @@ class Decoder <out T> (private val decode: (JsonValue) -> Result<T, String>) {
             }
         }
 
-        fun <V1, V2, V3, V4, V5, V6, V7, V8, T> map8(f: (V1, V2, V3, V4, V5, V6, V7, V8) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>, d4: Decoder<V4>, d5: Decoder<V5>, d6: Decoder<V6>, d7: Decoder<V7>, d8: Decoder<V8>): Decoder<T> {
+        fun <V1, V2, V3, V4, V5, V6, V7, V8, T> map(f: (V1, V2, V3, V4, V5, V6, V7, V8) -> T, d1: Decoder<V1>, d2: Decoder<V2>, d3: Decoder<V3>, d4: Decoder<V4>, d5: Decoder<V5>, d6: Decoder<V6>, d7: Decoder<V7>, d8: Decoder<V8>): Decoder<T> {
             return Decoder { value ->
                 d1(value).flatMap { v1 ->
                     d2(value).flatMap { v2 ->

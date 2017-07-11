@@ -98,7 +98,7 @@ class DecoderTests {
     fun testObjectBasic() {
         data class Creds(val uname: String, val password: String)
 
-        val decoder = Decoder.map2(
+        val decoder = Decoder.map(
             ::Creds,
             Decoder.get(listOf("user", "uname"), Decoder.string),
             Decoder.get("password", Decoder.string)
@@ -242,25 +242,25 @@ class DecoderTests {
             Decoder.get("a", Decoder.int))
         )
 
-        json.ok(3, Decoder.map2({ a, b -> a + b },
+        json.ok(3, Decoder.map({ a, b -> a + b },
             Decoder.get("a", Decoder.int),
             Decoder.get("b", Decoder.int)
         ))
 
-        json.ok(6, Decoder.map3({ a, b, c -> a + b + c },
+        json.ok(6, Decoder.map({ a, b, c -> a + b + c },
             Decoder.get("a", Decoder.int),
             Decoder.get("b", Decoder.int),
             Decoder.get("c", Decoder.int)
         ))
 
-        json.ok(10, Decoder.map4({ a, b, c, d -> a + b + c + d },
+        json.ok(10, Decoder.map({ a, b, c, d -> a + b + c + d },
             Decoder.get("a", Decoder.int),
             Decoder.get("b", Decoder.int),
             Decoder.get("c", Decoder.int),
             Decoder.get("d", Decoder.int)
         ))
 
-        json.ok(15, Decoder.map5({ a, b, c, d, e -> a + b + c + d + e },
+        json.ok(15, Decoder.map({ a, b, c, d, e -> a + b + c + d + e },
             Decoder.get("a", Decoder.int),
             Decoder.get("b", Decoder.int),
             Decoder.get("c", Decoder.int),
@@ -268,7 +268,7 @@ class DecoderTests {
             Decoder.get("e", Decoder.int)
         ))
 
-        json.ok(21, Decoder.map6({ a, b, c, d, e, f -> a + b + c + d + e + f },
+        json.ok(21, Decoder.map({ a, b, c, d, e, f -> a + b + c + d + e + f },
             Decoder.get("a", Decoder.int),
             Decoder.get("b", Decoder.int),
             Decoder.get("c", Decoder.int),
@@ -277,7 +277,7 @@ class DecoderTests {
             Decoder.get("f", Decoder.int)
         ))
 
-        json.ok(28, Decoder.map7({ a, b, c, d, e, f, g -> a + b + c + d + e + f + g },
+        json.ok(28, Decoder.map({ a, b, c, d, e, f, g -> a + b + c + d + e + f + g },
             Decoder.get("a", Decoder.int),
             Decoder.get("b", Decoder.int),
             Decoder.get("c", Decoder.int),
@@ -287,7 +287,7 @@ class DecoderTests {
             Decoder.get("g", Decoder.int)
         ))
 
-        json.ok(36, Decoder.map8({ a, b, c, d, e, f, g, h -> a + b + c + d + e + f + g + h },
+        json.ok(36, Decoder.map({ a, b, c, d, e, f, g, h -> a + b + c + d + e + f + g + h },
             Decoder.get("a", Decoder.int),
             Decoder.get("b", Decoder.int),
             Decoder.get("c", Decoder.int),

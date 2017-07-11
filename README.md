@@ -36,7 +36,7 @@ JSON decode/encode combinators for Kotlin.
     + [`.map()`](#map)
     + [`.mapError()`](#maperror)
     + [`.andThen()`](#andthen)
-    + [`.map()`, `.map2()`, `.map3()`, ..., `.map8()`](#map-map2-map3--map8)
+    + [`Decoder.map()` many decoders](#decodermap-many-decoders)
   * [Special](#special)
     + [`.fail()`](#fail)
     + [`.succeed()`](#succeed)
@@ -424,16 +424,16 @@ JD.decodeOrThrow("""{"version":4,"data":{"a":1,"b":2}}""") == Pair(1, 2)
 JD.decode("""{"version":5,"data":null}""") is Result.Err
 ```
 
-#### `.map()`, `.map2()`, `.map3()`, ..., `.map8()`
-
-**TODO:** Applying more than eight decoders is currently unsupported.
+#### `Decoder.map()` many decoders
 
 Apply 1-8 decoders to a JSON value and then pass all results to a function that returns a Kotlin value.
+
+**TODO:** Applying more than eight decoders is currently unsupported.
 
 ```kotlin
 data class Credentials(val uname: String, val password: String)
 
-val decoder = JD.map2(::Credentials, 
+val decoder = JD.map(::Credentials, 
     JD.get("uname", Decoder.string),
     JD.get("password", Decoder.string)
 )
@@ -452,7 +452,7 @@ Not limited to JSON objects. For example, this decoder plucks credentials
 from the only two values we care about in a JSON array.
 
 ```kotlin
-val decoder = JD.map2(::Credentials, 
+val decoder = JD.map(::Credentials, 
     JD.index(1, JD.string),
     JD.get(3, JD.string)
 )
@@ -499,7 +499,7 @@ The following snippet would cause a `StackOverflowError` because the `JD.listOf(
 must be evaluated eagerly to define `decoder` which will be expanded infinitely due to recursion.
 
 ```kotlin
-var decoder = JD.map2(
+var decoder = JD.map(
     ::Comment,
     JD.get("text", JD.string),
     JD.get("replies", JD.listOf(decoder)) // <-- The problem
@@ -515,7 +515,7 @@ data class Comment(val text: String, val replies: List<Comment> = emptyList()) {
 
 var decoder: JD<Comment>? = null
 
-decoder = JD.map2(
+decoder = JD.map(
     ::Comment,
     JD.get("text", JD.string),
     JD.get("replies", JD.listOf(JD.lazy { decoder!! }))
@@ -545,7 +545,7 @@ data class Comment(val text: String, val replies: List<Comment> = emptyList()) {
 
     companion object {
         val decoder: JD<Comment> by lazy {
-            JD.map2(::Comment,
+            JD.map(::Comment,
                 JD.get("text", JD.string),
                 JD.get("replies", JD.listOf(JD.lazy { decoder }))
             )
