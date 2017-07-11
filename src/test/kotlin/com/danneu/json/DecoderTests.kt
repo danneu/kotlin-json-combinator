@@ -298,6 +298,14 @@ class DecoderTests {
             Decoder.get("h", Decoder.int)
         ))
     }
+
+    // Handle annoying blockcypher api: https://dl.dropboxusercontent.com/spa/quq37nq1583x0lf/vwctnt01.png
+    @Test
+    fun testTrueOrMissing() {
+        val decoder = Decoder.getOrMissing("key", false, Decoder.bool)
+        assertEquals(true, Decoder.decodeOrThrow("""{"key": true}""", decoder))
+        assertEquals(false, Decoder.decodeOrThrow("{}", decoder))
+    }
 }
 
 
