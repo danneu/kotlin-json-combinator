@@ -2,11 +2,15 @@
 
 JSON decode/encode combinators for Kotlin.
 
+- JSON encoding/decoding implemented by [ralfstx/minimal-json][mjson].
 - Result monad from [danneu/kotlin-result][result]. 
-- Extracted from [danneu/kog](https://github.com/danneu/kog).
-- Inspired by [Elm](http://elm-lang.org/) with some implementation ported from Elm's decoder.
+- Extracted from [danneu/kog][kog].
+- Inspired by [Elm][elm] with some implementation ported from Elm's decoder.
 
+[elm]: http://elm-lang.org/
+[kog]: https://github.com/danneu/kog
 [result]: https://github.com/danneu/kotlin-result
+[mjson]: https://github.com/ralfstx/minimal-json
 
 ## Table of Contents
 

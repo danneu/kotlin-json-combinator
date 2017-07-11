@@ -286,8 +286,6 @@ class Decoder <out T> (private val decode: (JsonValue) -> Result<T, String>) {
 
         // MAPPING
 
-        // TODO: Generalize `mapN` function and allow chaining.
-
         fun <V1, T> map(f: (V1) -> T, d1: Decoder<V1>): Decoder<T> = Decoder { value ->
             d1(value).map { v1 ->
                 f(v1)
