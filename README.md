@@ -2,9 +2,11 @@
 
 JSON decode/encode combinators for Kotlin.
 
-- Result monad from [danneu/kotlin-result](https://github.com/danneu/kotlin-result). 
+- Result monad from [danneu/kotlin-result][result]. 
 - Extracted from [danneu/kog](https://github.com/danneu/kog).
-- Inspired by [Elm](http://elm-lang.org/).
+- Inspired by [Elm](http://elm-lang.org/) with some implementation ported from Elm's decoder.
+
+[result]: https://github.com/danneu/kotlin-result
 
 ## Table of Contents
 
@@ -12,7 +14,7 @@ JSON decode/encode combinators for Kotlin.
 
 - [Install](#install)
 - [Usage](#usage)
-- [Parsing](#parsing)
+  * [Result Quickstart](#result-quickstart)
 - [Decoding](#decoding)
   * [Basics](#basics)
     + [`.string`](#string)
@@ -27,7 +29,7 @@ JSON decode/encode combinators for Kotlin.
     + [`.index()`](#index)
   * [JSON Objects](#json-objects)
     + [`.get()`](#get)
-    + [`.getIn()`](#getin)
+    + [`.getOrMissing()`](#getormissing)
   * [Inconsistent Structure](#inconsistent-structure)
     + [`.oneOf()`](#oneof)
   * [Transforming and Chaining](#transforming-and-chaining)
@@ -60,23 +62,54 @@ dependencies {
 
 ## Usage
 
+Check out [danneu/kotlin-result][result] to see Result's API.
+
+Parsing vs. Decoding:
+
+- **Parsing** A JSON string or `java.io.Reader` is parsed into a `JsonValue`
+- **Decoding:** A `Decoder<T>` consumes `JsonValue` to produce `Result<T, errorString>`
+
+The `Decoder` class provides static methods for parsing, decoding, 
+and both at at the same time for convenience.
+
+Here's a quick tour:
+
+```kotlin
+Decoder.parse("42") -> Result.Ok<JsonValue>
+Decoder.parse("bad json") -> Result.Err<String>
+
+// Provide both JSON and a decoder to parse + decode in one call
+Decoder.decode("42", Decoder.int) == Result.ok(42)
+Decoder.decode("42", Decoder.string) == Result.err("Expected String by got JsonNumber")
+```
+
+The "orThrow" helpers are useful when you know the parse/decode cannot fail
+or if you specifically want to `try/catch` for ParseException or DecodeException.
+
+```kotlin
+// Forcefully unwrap the parse result 
+Decoder.parseOrThrow("42") -> JsonValue
+Decoder.parseOrThrow("bad json") throws com.danneu.json.ParseException
+
+
+// Forcefully unwrap the decode result
+Decoder.decodeOrThrow("42", Decoder.int) == 42
+Decoder.decodeOrThrow("42", Decoder.string) throws com.danneu.json.DecodeException
+Decoder.decodeOrThrow("bad json", Decoder.int) throws com.danneu.json.ParseException
+```
+
 The rest of the readme will assume these imports.
 
 ```kotlin
-import com.danneu.json.Decode as JD
-import com.danneu.json.Encode as JE
+import com.danneu.json.Decoder as JD
+import com.danneu.json.Encoder as JE
 import com.danneu.json.JsonValue // Opaque
 ```
 
-## Parsing
+### Result Quickstart
 
-`Decoder.parse()` parses JSON from a string or `java.io.Reader`.
-
-```kotlin
-val result: Result<JsonValue, String> = JD.parse("[1, 2, 3]")
-```
-
-Here are some ways to get the `JsonValue` out.
+As a quick crash-course for the [Result][result] monad,
+here are some ways to get the `JsonValue` out of the parse result:
 
 - With `Result.Ok`'s `.value`:
 
@@ -93,6 +126,7 @@ Here are some ways to get the `JsonValue` out.
     ```kotlin
     JD.parse("[1,2,3]").getOrElse(emptyList()) == listOf(1, 2, 3)
     JD.parse("bad json").getOrElse(emptyList()) == emptyList()
+    JD.parse("bad json").getOrElse { message -> return Response.badRequest() }
     ```
     
 - With `Result`'s `.getOrThrow()`:
@@ -159,7 +193,7 @@ Decode a JSON string into a Kotlin string.
 ```kotlin
 val decoder = JD.string
 
-decoder(JD.parse("\"foo\"").getOrThrow()).getOrThrow() == "foo"
+JD.decodeOrThrow("\"foo\"", decoder) == "foo"
 ```
 
 #### `.int`, `.float`, `.double`, `.long`
@@ -173,7 +207,7 @@ Decode a JSON boolean into a Kotlin boolean.
 ```kotlin
 val decoder = JD.bool
 
-decoder(JD.parse("true").getOrThrow()).getOrThrow() == true
+JD.decodeOrThrow("true", decoder) == true
 ```
 
 ### JSON Null
@@ -186,8 +220,8 @@ a JSON null and fails otherwise.
 ```kotlin
 val decoder = JD.whenNull(42)
 
-decoder(JD.parse("null").getOrThrow()).getOrThrow() == 42
-decoder(JD.parse("42").getOrThrow()) is Result.Err
+JD.decodeOrThrow("null", decoder) == 42
+JD.decode("42", decoder) is Result.Err
 ```
 
 Useful with `.map()` to provide a default value.
@@ -198,8 +232,8 @@ val decoder = JD.oneOf(
     JD.whenNull(-1)
 )
 
-decoder(JD.parse("42").getOrThrow()).getOrThrow() == 42
-decoder(JD.parse("null").getOrThrow()).getOrThrow() == -1
+JD.decodeOrThrow("42", decoder) == 42
+JD.decodeOrThrow("null", decoder) == -1
 ```
 
 #### `.nullable()`
@@ -209,8 +243,8 @@ Wrap a decoder such that it succeeds with `null` if it encounters JSON `null`.
 ```kotlin
 val decoder = JD.get("answer", JD.nullable(JD.int))
 
-decoder(JD.parse("""{"answer": 42}""").getOrThrow()).getOrThrow() == 42
-decoder(JD.parse("""{"answer": null}""").getOrThrow()).getOrThrow() == null
+JD.decodeOrThrow("""{"answer": 42}""", decoder) == 42
+JD.decodeOrThrow("""{"answer": null}""", decoder) == null
 ```
 
 ### JSON Arrays
@@ -222,7 +256,7 @@ Decode a JSON array into a Kotlin list or array.
 ```kotlin
 val decoder = JD.listOf(JD.int)
 
-decoder(JD.parse("[1, 2, 3]").getOrThrow()).getOrThrow() == listOf(1, 2, 3)
+JD.decodeOrThrow("[1, 2, 3]", decoder) == listOf(1, 2, 3)
 ```
 
 #### `.pairOf()`, `.tripleOf`
@@ -231,10 +265,10 @@ Decode a JSON array into a Kotlin pair or triple.
 
 ```kotlin
 val pairDecoder = JD.pairOf(JD.int, JD.string)
-pairDecoder(JD.parse("""[2, "foo"]""").getOrThrow()).getOrThrow() == Pair(2, "foo")
+JD.decodeOrThrow("""[2, "foo"]""", pairDecoder) == Pair(2, "foo")
 
 val tripleDecoder = JD.tripleOf(JD.int, JD.string, JD.listOf(JD.int))
-tripleDecoder(JD.parse("""[2, "foo", [1, 2, 3]]""").getOrThrow()).getOrThrow() == Triple(2, "foo", listOf(1, 2, 3))
+JD.decodeOrThrow("""[2, "foo", [1, 2, 3]]""", tripleDecoder) == Triple(2, "foo", listOf(1, 2, 3))
 ```
 
 #### `.index()`
@@ -244,7 +278,7 @@ Decode value at specific index of JSON array.
 ```kotlin
 val decoder = JD.index(2, JD.string)
 
-decoder(JD.parse("""["foo", "bar", "qux"]""").getOrThrow()).getOrThrow() == "qux"
+JD.decodeOrThrow("""["foo", "bar", "qux"]""") == "qux"
 ```
 
 ### JSON Objects
@@ -254,21 +288,21 @@ decoder(JD.parse("""["foo", "bar", "qux"]""").getOrThrow()).getOrThrow() == "qux
 Decode a value at the given key of a JSON object.
 
 ```kotlin
-val json = JD.parse("""
+val json = JD.parseOrThrow("""
     {
         "answer": 42
     }
-""").getOrThrow()
+""")
 
-JD.get("answer", JD.int).decode(json).getOrThrow() == 42
+val decoder = JD.get("answer", JD.int)
+
+decoder(json).getOrThrow() == 42
 ```
 
-#### `.getIn()`
-
-Decode a value in a nested JSON object given a path of keys.
+Pass in a list of keys to reach into nested objects.
 
 ```kotlin
-val json = JD.parse("""
+val json = JD.parseOrThrow("""
     {
         "a": {
             "b": {
@@ -276,12 +310,30 @@ val json = JD.parse("""
             }
         }
     }
-""").getOrThrow()
+""")
 
 val decoder = JD.getIn(listOf("a", "b", "c"), JD.listOf(JD.int))
 
 decoder(json).getOrThrow() == listOf(1, 2, 3)
 ```
+
+#### `.getOrMissing()`
+
+Like `.get()` except that you pass in a fallback value in the
+case that the key does not exist on the object.
+
+```kotlin
+val json = JD.parseOrThrow("""
+    {
+        "answer": 42
+    }
+""")
+
+JD.get("answer", JD.int).invoke(json) is Result.Err
+JD.getOrMissing("answer", -1, JD.int).invoke(json).getOrThrow() == -1
+```
+
+Pass in a list of keys to reach into nested objects.
 
 ### Inconsistent Structure
 
@@ -300,8 +352,8 @@ val decoder = JD.obj(
     )
 )
 
-decoder(JD.parse("""{"answer": 1}""").getOrThrow()).getOrThrow() == listOf(1)
-decoder(JD.parse("""{"answer": [1, 2, 3]}""").getOrThrow()).getOrThrow() == listOf(1, 2, 3)
+JD.decodeOrThrow("""{"answer": 1}""", decoder) == listOf(1)
+JD.decodeOrThrow("""{"answer": [1, 2, 3]}""", decoder) == listOf(1, 2, 3)
 ```
 
 ### Transforming and Chaining
@@ -316,7 +368,7 @@ val decoder = JD.listOf(JD.int).map { nums ->
     nums.fold(0, { a, b -> a + b })
 }
 
-decoder(JD.parse("[1, 2, 3]").getOrThrow()).getOrThrow() == 6
+JD.decodeOrThrow("[1, 2, 3]", decoder) == 6
 ```
 
 #### `.mapError()`
@@ -337,9 +389,9 @@ val decoder = JD.oneOf(
     JD.int.map(StringOrInt::Int)
 ).mapError { "Expected String or Int" }
 
-decoder(JD.parse("\"foo\"").getOrThrow()).getOrThrow() == StringOrInt.String("foo")
-decoder(JD.parse("42").getOrThrow()).getOrThrow() == StringOrInt.Int(42)
-decoder(JD.parse("null").getOrThrow()) == Result.err("Expected String or Int")
+JD.decodeOrThrow("\"foo\"", decoder) == StringOrInt.String("foo")
+JD.decodeOrThrow("42", decoder) == StringOrInt.Int(42)
+JD.decode("null", decoder) == Result.err("Expected String or Int")
 ```
 
 #### `.andThen()`
@@ -367,9 +419,9 @@ val decoder = JD.get("version", JD.int).andThen { version ->
     JD.get("data", dataDecoder)
 }
 
-decoder(JD.parse("""{"version":3,"data":[1, 2]}""").getOrThrow()).getOrThrow() == Pair(1, 2)
-decoder(JD.parse("""{"version":4,"data":{"a":1,"b":2}}""").getOrThrow()).getOrThrow() == Pair(1, 2)
-decoder(JD.parse("""{"version":5,"data":null}""").getOrThrow()) is Result.Err
+JD.decodeOrThrow("""{"version":3,"data":[1, 2]}""") == Pair(1, 2)
+JD.decodeOrThrow("""{"version":4,"data":{"a":1,"b":2}}""") == Pair(1, 2)
+JD.decode("""{"version":5,"data":null}""") is Result.Err
 ```
 
 #### `.map()`, `.map2()`, `.map3()`, ..., `.map8()`
@@ -381,17 +433,17 @@ Apply 1-8 decoders to a JSON value and then pass all results to a function that 
 ```kotlin
 data class Credentials(val uname: String, val password: String)
 
-val decoder = Decoder.map2(::Credentials, 
-    Decoder.get("uname", Decoder.string),
-    Decoder.get("password", Decoder.string)
+val decoder = JD.map2(::Credentials, 
+    JD.get("uname", Decoder.string),
+    JD.get("password", Decoder.string)
 )
 
-val json = JD.parse("""
+val json = JD.parseOrThrow("""
     {
         "uname": "foo",
         "password": "secret"
     }
-""").getOrThrow()
+""")
 
 decoder(json).getOrThrow() == Credentials("foo", "secret")
 ```
@@ -400,12 +452,12 @@ Not limited to JSON objects. For example, this decoder plucks credentials
 from the only two values we care about in a JSON array.
 
 ```kotlin
-val decoder = Decoder.map2(::Credentials, 
-    Decoder.index(1, Decoder.string),
-    Decoder.get(3, Decoder.string)
+val decoder = JD.map2(::Credentials, 
+    JD.index(1, JD.string),
+    JD.get(3, JD.string)
 )
 
-val json = JD.parse("""[42, "foo", -1, "secret"]""").getOrThrow()
+val json = JD.parseOrThrow("""[42, "foo", -1, "secret"]""")
 
 decoder(json).getOrThrow() == Credentials("foo", "secret")
 ```
@@ -419,7 +471,7 @@ Create a decoder that immediately fails with an error message.
 ```kotlin
 val decoder = JD.fail("Nope")
 
-decoder(JD.parse("42").getOrThrow()) is Result.Err
+decoder(JD.parseOrThrow("42")) is Result.Err
 ```
 
 Useful in `.oneOf()` and `.andThen()` when you want to give 
@@ -433,8 +485,8 @@ Create a decoders that immediately succeeds with a value.
 // Example of using .oneOf() + .succeed() to supply a default value
 val decoder = JD.get("answer", JD.oneOf(JD.int, JD.succeed(-1)))
 
-decoder(JD.parse("""{"answer": 42}""").getOrThrow()).getOrThrow() == 42
-decoder(JD.parse("""{"answer": null}""").getOrThrow()).getOrThrow() == -1
+JD.decodeOrThrow("""{"answer": 42}""", decoder) == 42
+JD.decodeOrThrow("""{"answer": null}""", decoder) == -1
 ```
 
 #### `.lazy()`

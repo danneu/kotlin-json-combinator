@@ -2,11 +2,14 @@ package com.danneu.json
 
 import com.danneu.result.Result
 import com.danneu.result.flatMap
+import com.danneu.result.getOrElse
 import com.eclipsesource.json.Json
-import com.eclipsesource.json.JsonValue
 import java.io.Reader
 
-class Decoder <out T> (val decode: (JsonValue) -> Result<T, String>) {
+class ParseException(message: String) : Exception(message)
+class DecodeException(message: String) : Exception(message)
+
+class Decoder <out T> (private val decode: (JsonValue) -> Result<T, String>) {
     operator fun invoke(value: JsonValue) = decode(value)
 
     fun <T2> andThen(f: (T) -> Decoder<T2>): Decoder<T2> = Decoder { jsonValue ->
@@ -28,12 +31,38 @@ class Decoder <out T> (val decode: (JsonValue) -> Result<T, String>) {
     companion object {
         // PARSING
 
-        fun parse(reader: Reader): Result<JsonValue, String> {
-            return Result.ok(Json.parse(reader))
+        fun parse(reader: Reader): Result<JsonValue, String> = try {
+            Result.ok(JsonValue(Json.parse(reader)))
+        } catch (ex: com.eclipsesource.json.ParseException) {
+            Result.err(ex.message!!)
         }
 
-        fun parse(string: String): Result<JsonValue, String> {
-            return Result.ok(Json.parse(string))
+        fun parse(string: String) = try {
+            Result.ok(JsonValue(Json.parse(string)))
+        } catch (ex: com.eclipsesource.json.ParseException) {
+            Result.err(ex.message!!)
+        }
+
+        fun parseOrThrow(reader: Reader) = parse(reader).getOrElse { message -> throw ParseException(message) }
+
+        fun parseOrThrow(string: String) = parse(string).getOrElse { message -> throw ParseException(message) }
+
+        // PARSING + DECODING
+
+        fun <T> decode(reader: Reader, decoder: Decoder<T>): Result<T, String> {
+            return parse(reader).flatMap { decoder(it) }
+        }
+
+        fun <T> decode(string: String, decoder: Decoder<T>): Result<T, String> {
+            return parse(string).flatMap { decoder(it) }
+        }
+
+        fun <T> decodeOrThrow(reader: Reader, decoder: Decoder<T>): T {
+            return parse(reader).flatMap { decoder(it) }.getOrElse { throw DecodeException(it) }
+        }
+
+        fun <T> decodeOrThrow(string: String, decoder: Decoder<T>): T {
+            return parse(string).flatMap { decoder(it) }.getOrElse { throw DecodeException(it) }
         }
 
         // DECODERS
@@ -42,81 +71,99 @@ class Decoder <out T> (val decode: (JsonValue) -> Result<T, String>) {
 
         fun <A> get(key: String, decoder: Decoder<A>): Decoder<A> = Decoder {
             when {
-                it.isObject ->
-                    it.asObject().get(key)?.let(decoder.decode) ?:
+                it.underlying.isObject ->
+                    it.underlying.asObject().get(key)?.let { decoder(JsonValue(it))} ?:
                         Result.err("Expected field \"$key\" but it was missing")
                 else ->
-                    Result.err("Expected object but got ${it.javaClass.simpleName}")
+                    Result.err("Expected object but got ${it.underlying.javaClass.simpleName}")
             }
+        }
+
+        fun <A> get(keys: List<String>, decoder: Decoder<A>): Decoder<A> {
+            return keys.foldRight(decoder, { key, acc -> get(key, acc) })
+        }
+
+        fun <A> getOrMissing(key: String, fallback: A, decoder: Decoder<A>): Decoder<A> = Decoder { jsonValue ->
+            when {
+                jsonValue.underlying.isObject ->
+                    jsonValue.underlying.asObject().get(key)?.let { decoder(JsonValue(it))} ?:
+                        Result.ok(fallback)
+                else ->
+                    Result.err("Expected object but got ${jsonValue.underlying.javaClass.simpleName}")
+            }
+        }
+
+        fun <A> getOrMissing(keys: List<String>, fallback: A, decoder: Decoder<A>): Decoder<A> {
+            return keys.foldRight(decoder, { key, acc -> getOrMissing(key, fallback, acc) })
         }
 
         val string: Decoder<String> = Decoder {
             when {
-                it.isString ->
-                    Result.ok(it.asString())
+                it.underlying.isString ->
+                    Result.ok(it.underlying.asString())
                 else ->
-                    Result.err("Expected String but got ${it.javaClass.simpleName}")
+                    Result.err("Expected String but got ${it.underlying.javaClass.simpleName}")
             }
         }
 
         val int: Decoder<Int> = Decoder {
             when {
-                it.isNumber ->
-                    Result.ok(it.asInt())
+                it.underlying.isNumber ->
+                    Result.ok(it.underlying.asInt())
                 else ->
-                    Result.err("Expected Int but got ${it.javaClass.simpleName}")
+                    Result.err("Expected Int but got ${it.underlying.javaClass.simpleName}")
             }
         }
 
         val float: Decoder<Float> = Decoder {
             when {
-                it.isNumber ->
-                    Result.ok(it.asFloat())
+                it.underlying.isNumber ->
+                    Result.ok(it.underlying.asFloat())
                 else ->
-                    Result.err("Expected Float but got ${it.javaClass.simpleName}")
+                    Result.err("Expected Float but got ${it.underlying.javaClass.simpleName}")
             }
         }
 
         val double: Decoder<Double> = Decoder {
             when {
-                it.isNumber ->
-                    Result.ok(it.asDouble())
+                it.underlying.isNumber ->
+                    Result.ok(it.underlying.asDouble())
                 else ->
-                    Result.err("Expected Double but got ${it.javaClass.simpleName}")
+                    Result.err("Expected Double but got ${it.underlying.javaClass.simpleName}")
             }
         }
 
         val long: Decoder<Long> = Decoder {
             when {
-                it.isNumber ->
-                    Result.ok(it.asLong())
+                it.underlying.isNumber ->
+                    Result.ok(it.underlying.asLong())
                 else ->
-                    Result.err("Expected Long but got ${it.javaClass.simpleName}")
+                    Result.err("Expected Long but got ${it.underlying.javaClass.simpleName}")
             }
         }
 
 
         val bool: Decoder<Boolean> = Decoder {
             when {
-                it.isBoolean ->
-                    Result.ok(it.asBoolean())
+                it.underlying.isBoolean ->
+                    Result.ok(it.underlying.asBoolean())
                 else ->
-                    Result.err("Expected Bool but got ${it.javaClass.simpleName}")
+                    Result.err("Expected Bool but got ${it.underlying.javaClass.simpleName}")
             }
         }
 
         fun <T> whenNull(default: T): Decoder<T> = Decoder {
             when {
-                it.isNull ->
+                it.underlying.isNull ->
                     Result.ok(default)
                 else ->
-                    Result.err("Expected null but got ${it.javaClass.simpleName}")
+                    Result.err("Expected null but got ${it.underlying.javaClass.simpleName}")
             }
         }
 
         fun <T> nullable(decoder: Decoder<T>): Decoder<T?> = Decoder {
             when {
-                it.isNull ->
+                it.underlying.isNull ->
                     Result.ok(null)
                 else ->
                     decoder(it)
@@ -125,10 +172,10 @@ class Decoder <out T> (val decode: (JsonValue) -> Result<T, String>) {
 
         fun <A> listOf(decoder: Decoder<A>): Decoder<List<A>> = Decoder { jsonValue ->
             when {
-                jsonValue.isArray ->
+                jsonValue.underlying.isArray ->
                     // Short-circuit on first decode fail
-                    jsonValue.asArray().map { value ->
-                        decoder(value).let { result ->
+                    jsonValue.underlying.asArray().map { value ->
+                        decoder(JsonValue(value)).let { result ->
                             when (result) {
                                 is Result.Err ->
                                     return@Decoder Result.err(result.error)
@@ -138,7 +185,7 @@ class Decoder <out T> (val decode: (JsonValue) -> Result<T, String>) {
                         }
                     }.let(Result.Companion::ok)
                 else ->
-                    Result.err("Expected JSON array but got ${jsonValue.javaClass.simpleName}")
+                    Result.err("Expected JSON array but got ${jsonValue.underlying.javaClass.simpleName}")
             }
         }
 
@@ -146,9 +193,9 @@ class Decoder <out T> (val decode: (JsonValue) -> Result<T, String>) {
 
         fun <A> keyValuePairs(decoder: Decoder<A>): Decoder<List<Pair<String, A>>> = Decoder { jsonValue ->
             when {
-                jsonValue.isObject ->
-                    jsonValue.asObject().map { member ->
-                        decoder(member.value).map { member.name to it }.let { result ->
+                jsonValue.underlying.isObject ->
+                    jsonValue.underlying.asObject().map { member ->
+                        decoder(JsonValue(member.value)).map { member.name to it }.let { result ->
                             when (result) {
                                 is Result.Err ->
                                     return@Decoder Result.err(result.error)
@@ -158,7 +205,7 @@ class Decoder <out T> (val decode: (JsonValue) -> Result<T, String>) {
                         }
                     }.let(Result.Companion::ok)
                 else ->
-                    Result.err("Expected JSON object but got ${jsonValue.javaClass.simpleName}")
+                    Result.err("Expected JSON object but got ${jsonValue.underlying.javaClass.simpleName}")
             }
         }
 
@@ -166,11 +213,11 @@ class Decoder <out T> (val decode: (JsonValue) -> Result<T, String>) {
 
         fun <A, B> pairOf(left: Decoder<A>, right: Decoder<B>): Decoder<Pair<A, B>> = Decoder { jsonValue ->
             when {
-                jsonValue.isArray -> {
-                    jsonValue.asArray().let { array ->
+                jsonValue.underlying.isArray -> {
+                    jsonValue.underlying.asArray().let { array ->
                         if (array.size() == 2) {
-                            left(array[0]).flatMap { v1 ->
-                                right(array[1]).map { v2 ->
+                            left(JsonValue(array[0])).flatMap { v1 ->
+                                right(JsonValue(array[1])).map { v2 ->
                                     v1 to v2
                                 }
                             }
@@ -181,18 +228,18 @@ class Decoder <out T> (val decode: (JsonValue) -> Result<T, String>) {
                     }
                 }
                 else ->
-                    Result.err("Expected Pair but got ${jsonValue.javaClass.simpleName}")
+                    Result.err("Expected Pair but got ${jsonValue.underlying.javaClass.simpleName}")
             }
         }
 
         fun <A, B, C> tripleOf(d1: Decoder<A>, d2: Decoder<B>, d3: Decoder<C>): Decoder<Triple<A, B, C>> = Decoder { jsonValue ->
             when {
-                jsonValue.isArray ->
-                    jsonValue.asArray().let { array ->
+                jsonValue.underlying.isArray ->
+                    jsonValue.underlying.asArray().let { array ->
                         if (array.size() == 3) {
-                            d1(array[0]).flatMap { v1 ->
-                                d2(array[1]).flatMap { v2 ->
-                                    d3(array[2]).map { v3 ->
+                            d1(JsonValue(array[0])).flatMap { v1 ->
+                                d2(JsonValue(array[1])).flatMap { v2 ->
+                                    d3(JsonValue(array[2])).map { v3 ->
                                         Triple(v1, v2, v3)
                                     }
                                 }
@@ -202,29 +249,23 @@ class Decoder <out T> (val decode: (JsonValue) -> Result<T, String>) {
                         }
                     }
                 else ->
-                    Result.err("Expected Pair but got ${jsonValue.javaClass.simpleName}")
+                    Result.err("Expected Pair but got ${jsonValue.underlying.javaClass.simpleName}")
             }
         }
-
-
-        fun <A> getIn(keys: List<String>, decoder: Decoder<A>): Decoder<A> {
-            return keys.foldRight(decoder, { k, a -> get(k ,a) })
-        }
-
 
         fun <A> index(i: Int, decoder: Decoder<A>): Decoder<A> {
             return Decoder { jsonValue ->
                 when {
-                    jsonValue.isArray ->
-                        jsonValue.asArray().let { array ->
+                    jsonValue.underlying.isArray ->
+                        jsonValue.underlying.asArray().let { array ->
                             if (i >= 0 && i < array.size()) {
-                                decoder(array.get(i))
+                                decoder(JsonValue(array.get(i)))
                             } else {
                                 Result.err("Expected index $i to be in bounds of array")
                             }
                         }
                     else ->
-                        Result.err("Expected Array but got ${jsonValue.javaClass.simpleName}")
+                        Result.err("Expected Array but got ${jsonValue.underlying.javaClass.simpleName}")
                 }
             }
         }
@@ -371,6 +412,10 @@ class Decoder <out T> (val decode: (JsonValue) -> Result<T, String>) {
 
         fun <T> fail(message: String): Decoder<T> = Decoder {
             Result.err(message)
+        }
+
+        val value: Decoder<JsonValue> = Decoder { jsonValue ->
+            Result.ok(jsonValue)
         }
     }
 }

@@ -1,26 +1,25 @@
 package com.danneu.json
 
 import com.danneu.result.Result
-import com.eclipsesource.json.Json
 import org.junit.Assert.*
 import org.junit.Test
 
 // Test many decoders against one json string
 
 private fun <V> String.ok(expected: V, decoder: Decoder<V>) {
-    assertEquals(Result.ok(expected), decoder(Json.parse(this)))
+    assertEquals(Result.ok(expected), Decoder.decode(this, decoder))
 }
 
 private fun <V> String.ok(message: String, expected: V, decoder: Decoder<V>) {
-    assertEquals(message, Result.ok(expected), decoder(Json.parse(this)))
+    assertEquals(message, Result.ok(expected), Decoder.decode(this, decoder))
 }
 
 private fun <V> String.err(decoder: Decoder<V>) {
-    assertTrue(decoder(Json.parse(this)) is Result.Err)
+    assertTrue(Decoder.decode(this, decoder) is Result.Err)
 }
 
 private fun <V> String.err(message: String, decoder: Decoder<V>) {
-    assertTrue(message, decoder(Json.parse(this)) is Result.Err)
+    assertTrue(message, Decoder.decode(this, decoder) is Result.Err)
 }
 
 // Test many json strings against one decoder
@@ -74,7 +73,7 @@ class DecoderTests {
         // and then again to return list of pairs.
         var times = 0
         val decoder = Decoder.keyValuePairs(Decoder.int.map { ++times; it })
-        decoder(Json.parse("""{"a": 1, "b": 2}"""))
+        Decoder.decodeOrThrow("""{"a": 1, "b": 2}""", decoder)
         assertEquals("iterates once", 2, times)
     }
 
@@ -101,7 +100,7 @@ class DecoderTests {
 
         val decoder = Decoder.map2(
             ::Creds,
-            Decoder.getIn(listOf("user", "uname"), Decoder.string),
+            Decoder.get(listOf("user", "uname"), Decoder.string),
             Decoder.get("password", Decoder.string)
         )
 
@@ -113,14 +112,14 @@ class DecoderTests {
     fun testGetIn() {
         // Empty path
 
-        "42".ok(42, Decoder.getIn(listOf(), Decoder.int))
+        "42".ok(42, Decoder.get(emptyList(), Decoder.int))
 
         // Deep path
 
         """{"a":{"b":{"c":42}}}""".apply {
-            ok(42, Decoder.getIn(listOf("a", "b", "c"), Decoder.int))
-            err("too few keys will not match", Decoder.getIn(listOf("a", "b"), Decoder.int))
-            err("too many keys will not match", Decoder.getIn(listOf("a", "b", "c", "d"), Decoder.int))
+            ok(42, Decoder.get(listOf("a", "b", "c"), Decoder.int))
+            err("too few keys will not match", Decoder.get(listOf("a", "b"), Decoder.int))
+            err("too many keys will not match", Decoder.get(listOf("a", "b", "c", "d"), Decoder.int))
         }
     }
 
@@ -169,9 +168,9 @@ class DecoderTests {
             Decoder.whenNull(-1)
         )
 
-        assertEquals(Result.ok(42), decoder(Decoder.parse("42").getOrThrow()))
-        assertEquals(Result.ok(-1), decoder(Decoder.parse("null").getOrThrow()))
-        assert(decoder(Decoder.parse("\"foo\"").getOrThrow()) is Result.Err)
+        assertEquals(Result.ok(42), Decoder.decode("42", decoder))
+        assertEquals(Result.ok(-1), Decoder.decode("null", decoder))
+        assert(Decoder.decode("\"foo\"", decoder) is Result.Err)
     }
 
     @Test
@@ -220,13 +219,13 @@ class DecoderTests {
         assertEquals(
             "Does nothing on success",
             Result.ok(42),
-            decoder(Decoder.parse("42").getOrThrow())
+            Decoder.decode("42", decoder)
         )
 
         assertEquals(
             "Transform error on failure",
             Result.err("transformed"),
-            decoder(Decoder.parse("null").getOrThrow())
+            Decoder.decode("null", decoder)
         )
     }
 

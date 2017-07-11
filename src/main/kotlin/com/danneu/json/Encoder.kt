@@ -9,31 +9,33 @@ import com.eclipsesource.json.JsonArray as MJsonArray
 object Encoder {
     // STRING
 
-    fun str(v: kotlin.String): JsonValue = JsonValue.String(v)
+    fun str(v: kotlin.String) = JsonValue(MJson.value(v))
 
     // NUMBER
 
-    fun num(v: kotlin.Short): JsonValue = JsonValue.Long(v.toLong())
+    fun num(v: kotlin.Short) = JsonValue(MJson.value(v.toLong()))
 
-    fun num(v: kotlin.Int): JsonValue = JsonValue.Long(v.toLong())
+    fun num(v: kotlin.Int) = JsonValue(MJson.value(v.toLong()))
 
-    fun num(v: kotlin.Long): JsonValue = JsonValue.Long(v)
+    fun num(v: kotlin.Long) = JsonValue(MJson.value(v))
 
-    fun num(v: kotlin.Float): JsonValue = JsonValue.Double(v.toDouble())
+    fun num(v: kotlin.Float) = JsonValue(MJson.value(v.toDouble()))
 
-    fun num(v: kotlin.Double): JsonValue = JsonValue.Double(v)
+    fun num(v: kotlin.Double) = JsonValue(MJson.value(v))
 
     // BOOLEAN
 
-    fun bool(v: kotlin.Boolean): JsonValue = JsonValue.Boolean(v)
+    fun bool(v: kotlin.Boolean) = JsonValue(MJson.value(v))
 
     // NULL
 
-    val `null`: JsonValue = JsonValue.Null
+    val `null`: JsonValue = JsonValue(MJson.NULL)
 
     // OBJECT
 
-    fun obj(pairs: Iterable<Pair<String, JsonValue>>): JsonValue = JsonValue.Object(pairs)
+    fun obj(pairs: Iterable<Pair<String, JsonValue>>) = MJson.`object`().apply {
+        for ((k, v) in pairs) this.add(k, v.underlying)
+    }.let(::JsonValue)
 
     fun obj(pairs: Sequence<Pair<String, JsonValue>>) = obj(pairs.asIterable())
 
@@ -43,7 +45,9 @@ object Encoder {
 
     // ARRAY
 
-    fun array(values: Iterable<JsonValue>): JsonValue = JsonValue.Array(values)
+    fun array(values: Iterable<JsonValue>) = (MJson.array() as MJsonArray).apply {
+        for (v in values) this.add(v.underlying)
+    }.let (::JsonValue)
 
     fun array(vararg values: JsonValue) = array(values.asList())
 
