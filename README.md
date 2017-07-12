@@ -228,13 +228,25 @@ JD.decodeOrThrow("null", decoder) == 42
 JD.decode("42", decoder) is Result.Err
 ```
 
-Useful with `.map()` to provide a default value.
+Useful with `.oneOf()` to provide a default value.
 
 ```kotlin
 val decoder = JD.oneOf(
     JD.int,
     JD.whenNull(-1)
 )
+
+JD.decodeOrThrow("42", decoder) == 42
+JD.decodeOrThrow("null", decoder) == -1
+```
+
+Or can use the instance method form to upgrade
+a decoder into one that can handle nulls.
+
+Here's the previous example rewritten:
+
+```kotlin
+val decoder = JD.int.whenNull(-1)
 
 JD.decodeOrThrow("42", decoder) == 42
 JD.decodeOrThrow("null", decoder) == -1
