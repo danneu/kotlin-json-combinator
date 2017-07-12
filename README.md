@@ -328,7 +328,7 @@ val json = JD.parseOrThrow("""
     }
 """)
 
-val decoder = JD.getIn(listOf("a", "b", "c"), JD.listOf(JD.int))
+val decoder = JD.get(listOf("a", "b", "c"), JD.listOf(JD.int))
 
 decoder(json).getOrThrow() == listOf(1, 2, 3)
 ```
