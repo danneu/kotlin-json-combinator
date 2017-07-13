@@ -590,13 +590,25 @@ Comment.decoder(json).getOrThrow() == Comment("comment 1", listOf(
 The Encoder is used to transform Kotlin values into `JsonValue`s with these members:
 `.obj()`, `.array()`, `.num()`, `.str()`, `.bool()`, and ```.`null` ```.
 
-Once you have a `JsonValue`, use `.toString()` or `.toPrettyString()` 
-to produce the JSON string.
+
+### Writing JSON
+
+Once you have a `JsonValue`, use `.toString(Whitespace)` or `.writeTo(java.io.Writer, Whitespace)` 
+to produce JSON.
+
+```kotlin
+json.toString() // Implicit Whitespace.Minimal
+json.toString(Whitespace.Pretty)
+
+json.writeTo(writer) // Implicit Whitespace.Minimal
+json.writeTo(writer, Whitespace.Pretty)
+```
 
 ### Example
 
 ```kotlin
 import com.danneu.json.Encoder as JE
+import com.danneu.json.Whitespace.Pretty
 
 fun main(args: Array<String>) {
     val user = object { 
@@ -616,7 +628,7 @@ fun main(args: Array<String>) {
         )
     )
     
-    println(jsonValue.toPrettyString())
+    println(jsonValue.toString(Pretty))
 }
 ```
 
