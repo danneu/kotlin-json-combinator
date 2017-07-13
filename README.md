@@ -428,7 +428,7 @@ We can use `.andThen()` to return different decoders depending on the decoded `"
 val decoder = JD.get("version", JD.int).andThen { version ->
     val dataDecoder = when (version) {
         3 -> JD.pairOf(JD.int, JD.int)
-        4 -> JD.object2(::Pair, JD.get("a", JD.int), JD.get("b", JD.int))
+        4 -> JD.map(::Pair, JD.get("a", JD.int), JD.get("b", JD.int))
         else -> JD.fail("Unexpected version: $version")
     }
 
