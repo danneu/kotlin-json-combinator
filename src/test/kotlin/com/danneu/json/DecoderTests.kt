@@ -61,9 +61,14 @@ class DecoderTests {
 
     @Test
     fun testKeyValuePairs() {
+        // Arity 1
         """{"a": "x", "b": "y"}""".ok(listOf(Pair("a", "x"), Pair("b", "y")), Decoder.keyValuePairs(Decoder.string))
         """{"a": 100, "b": 200}""".ok(listOf(Pair("a", 100), Pair("b", 200)), Decoder.keyValuePairs(Decoder.int))
         """{"a": 100, "b": 200}""".err(Decoder.keyValuePairs(Decoder.string))
+        // Arity 2
+        """{"a": "x", "b": "y"}""".ok(listOf(Pair("a", "x"), Pair("b", "y")), Decoder.keyValuePairs(Decoder.string, Decoder.string))
+        """{"a": 100, "b": 200}""".ok(listOf(Pair("a", 100), Pair("b", 200)), Decoder.keyValuePairs(Decoder.string, Decoder.int))
+        """{"a": 100, "b": 200}""".err(Decoder.keyValuePairs(Decoder.string, Decoder.string))
     }
 
     @Test
@@ -78,10 +83,43 @@ class DecoderTests {
     }
 
     @Test
+    fun testKeyValuePairsKeyDecoder() {
+        """{"1": "x", "2": "y"}""".err(Decoder.keyValuePairs(Decoder.int, Decoder.string))
+        """{"1": "x", "2": "y"}""".ok(listOf(1 to "x", 2 to "y"),
+            Decoder.keyValuePairs(
+                Decoder.string.andThen { str ->
+                    str.toIntOrNull()?.let { Decoder.succeed(it) }
+                        ?: Decoder.fail("string could not be converted into int")
+                },
+                Decoder.string
+            )
+        )
+    }
+
+    @Test
     fun testMapOf() {
+        // Arity 1
         """{"a": "x", "b": "y"}""".ok(mapOf("a" to "x", "b" to "y"), Decoder.mapOf(Decoder.string))
         """{"a": 100, "b": 200}""".ok(mapOf("a" to 100, "b" to 200), Decoder.mapOf(Decoder.int))
         """{"a": 100, "b": 200}""".err(Decoder.mapOf(Decoder.string))
+        // Arity 2
+        """{"a": "x", "b": "y"}""".ok(mapOf("a" to "x", "b" to "y"), Decoder.mapOf(Decoder.string, Decoder.string))
+        """{"a": 100, "b": 200}""".ok(mapOf("a" to 100, "b" to 200), Decoder.mapOf(Decoder.string, Decoder.int))
+        """{"a": 100, "b": 200}""".err(Decoder.mapOf(Decoder.string, Decoder.string))
+    }
+
+    @Test
+    fun testMapOfKeyDecode() {
+        """{"1": "x", "2": "y"}""".err(Decoder.mapOf(Decoder.int, Decoder.string))
+        """{"1": "x", "2": "y"}""".ok(mapOf(1 to "x", 2 to "y"),
+            Decoder.mapOf(
+                Decoder.string.andThen { str ->
+                    str.toIntOrNull()?.let { Decoder.succeed(it) }
+                        ?: Decoder.fail("string could not be converted into int")
+                },
+                Decoder.string
+            )
+        )
     }
 
     @Test

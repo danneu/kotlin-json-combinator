@@ -191,11 +191,15 @@ class Decoder <out T> (private val decode: (JsonValue) -> Result<T, String>) {
 
         inline fun <reified A> arrayOf(decoder: Decoder<A>): Decoder<Array<A>> = listOf(decoder).map { it.toTypedArray() }
 
-        fun <A> keyValuePairs(decoder: Decoder<A>): Decoder<List<Pair<String, A>>> = Decoder { jsonValue ->
+        fun <K, V> keyValuePairs(keyDecoder: Decoder<K>, valueDecoder: Decoder<V>): Decoder<List<Pair<K, V>>> = Decoder { jsonValue ->
             when {
                 jsonValue.underlying.isObject ->
                     jsonValue.underlying.asObject().map { member ->
-                        decoder(JsonValue(member.value)).map { member.name to it }.let { result ->
+                        keyDecoder(JsonValue(Json.value(member.name))).flatMap { k ->
+                            valueDecoder(JsonValue(member.value)).map { v ->
+                                k to v
+                            }
+                        }.let { result ->
                             when (result) {
                                 is Result.Err ->
                                     return@Decoder Result.err(result.error)
@@ -209,7 +213,14 @@ class Decoder <out T> (private val decode: (JsonValue) -> Result<T, String>) {
             }
         }
 
-        fun <A> mapOf(decoder: Decoder<A>): Decoder<Map<String, A>> = keyValuePairs(decoder).map { it.toMap() }
+
+        fun <V> keyValuePairs(valueDecoder: Decoder<V>) = Decoder.keyValuePairs(Decoder.string, valueDecoder)
+
+        fun <K, V> mapOf(keyDecoder: Decoder<K>, valueDecoder: Decoder<V>): Decoder<Map<K, V>> {
+            return keyValuePairs(keyDecoder, valueDecoder).map { it.toMap() }
+        }
+
+        fun <V> mapOf(valueDecoder: Decoder<V>) = Decoder.mapOf(Decoder.string, valueDecoder)
 
         fun <A, B> pairOf(left: Decoder<A>, right: Decoder<B>): Decoder<Pair<A, B>> = Decoder { jsonValue ->
             when {
