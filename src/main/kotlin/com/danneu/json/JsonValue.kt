@@ -12,6 +12,12 @@ enum class Whitespace { Minimal, Pretty }
  * - Encoders produce it.
  */
 class JsonValue internal constructor(internal val underlying: MJsonValue) {
+    override fun equals(other: Any?): Boolean {
+        return other is JsonValue && underlying == other.underlying
+    }
+
+    override fun hashCode() = underlying.hashCode()
+
     override fun toString() = underlying.toString()
 
     fun toString(whitespace: Whitespace): String = when (whitespace) {
@@ -27,5 +33,4 @@ class JsonValue internal constructor(internal val underlying: MJsonValue) {
         Whitespace.Pretty ->
             underlying.writeTo(writer, WriterConfig.PRETTY_PRINT)
     }
-
 }
