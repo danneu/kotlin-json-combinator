@@ -624,7 +624,7 @@ fun main(args: Array<String>) {
             "username" to JE.str(user.uname),
             // array() supports both varargs and iterables
             "luckyNumbers" to JE.array(JE.num(3), JE.num(9), JE.num(27)),
-            "favoriteColors" to JE.array(listOf(JE.string("orange"), JE.string("black")))
+            "favoriteColors" to JE.array(listOf(JE.str("orange"), JE.str("black")))
         )
     )
     
