@@ -474,9 +474,7 @@ JD.decode("""{"version":5,"data":null}""") is Result.Err
 
 #### `Decoder.map()` many decoders
 
-Apply 1-8 decoders to a JSON value and then pass all results to a function that returns a Kotlin value.
-
-**TODO:** Applying more than eight decoders is currently unsupported.
+Apply 1-20 decoders to a JSON value and then pass all results to a function that returns a Kotlin value.
 
 ```kotlin
 data class Credentials(val uname: String, val password: String)

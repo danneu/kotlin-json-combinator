@@ -335,6 +335,45 @@ class DecoderTests {
             Decoder.get("g", Decoder.int),
             Decoder.get("h", Decoder.int)
         ))
+
+        // arity9
+        json.ok(37, Decoder.map({ a, b, c, d, e, f, g, h, v9 -> a + b + c + d + e + f + g + h + v9 },
+            Decoder.get("a", Decoder.int),
+            Decoder.get("b", Decoder.int),
+            Decoder.get("c", Decoder.int),
+            Decoder.get("d", Decoder.int),
+            Decoder.get("e", Decoder.int),
+            Decoder.get("f", Decoder.int),
+            Decoder.get("g", Decoder.int),
+            Decoder.get("h", Decoder.int),
+            Decoder.succeed(1)
+        ))
+
+        // Test max arity
+        json.ok(20, Decoder.map({ v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20 ->
+            v1 + v2 + v3 + v4 + v5 + v6 + v7 + v8 + v9 + v10 + v11 + v12 + v13 + v14 + v15 + v16 + v17 + v18 + v19 + v20
+        },
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1),
+            Decoder.succeed(1)
+        ))
     }
 
     // Handle annoying blockcypher api: https://dl.dropboxusercontent.com/spa/quq37nq1583x0lf/vwctnt01.png
