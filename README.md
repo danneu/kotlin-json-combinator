@@ -29,11 +29,13 @@ JSON decode/encode combinators for Kotlin.
     + [`.nullable()`](#nullable)
   * [JSON Arrays](#json-arrays)
     + [`.listOf()`, `.arrayOf()`](#listof-arrayof)
-    + [`.pairOf()`, `.tripleOf`](#pairof-tripleof)
+    + [`.pairOf()`, `.tripleOf()`](#pairof-tripleof)
     + [`.index()`](#index)
   * [JSON Objects](#json-objects)
     + [`.get()`](#get)
     + [`.getOrMissing()`](#getormissing)
+    + [`.keyValuePairs()`](#keyvaluepairs)
+    + [`.mapOf()`](#mapof)
   * [Inconsistent Structure](#inconsistent-structure)
     + [`.oneOf()`](#oneof)
   * [Transforming and Chaining](#transforming-and-chaining)
@@ -46,6 +48,7 @@ JSON decode/encode combinators for Kotlin.
     + [`.succeed()`](#succeed)
     + [`.lazy()`](#lazy)
 - [Encoding](#encoding)
+  * [Writing JSON](#writing-json)
   * [Example](#example)
 
 <!-- tocstop -->
@@ -275,7 +278,7 @@ val decoder = JD.listOf(JD.int)
 JD.decodeOrThrow("[1, 2, 3]", decoder) == listOf(1, 2, 3)
 ```
 
-#### `.pairOf()`, `.tripleOf`
+#### `.pairOf()`, `.tripleOf()`
 
 Decode a JSON array into a Kotlin pair or triple.
 
@@ -350,6 +353,35 @@ JD.getOrMissing("answer", -1, JD.int).invoke(json).getOrThrow() == -1
 ```
 
 Pass in a list of keys to reach into nested objects.
+
+#### `.keyValuePairs()`
+
+Decodes a JSON object into a list of `Pair<K, V>`.
+
+```kotlin
+val json = JD.parseOrThrow("""{ "0": 100, "1": 200, "2": 300 }""")
+
+// By default, the key is decoded into a string
+JD.keyValuePairs(JD.int).invoke(json) == listOf("0" to 100, "1" to 200, "2" to 300)
+// Or you can pass in decoders for both the key and value
+JD.keyValuePairs(JD.int, JD.int).invoke(json) == listOf(0 to 100, 1 to 200, 2 to 300)
+```
+
+#### `.mapOf()`
+
+Basically the same as `.keyValuePairs()` except that the result
+is folded into a Map.
+
+Decodes a JSON object into `Map<K, V>`.
+
+```kotlin
+val json = JD.parseOrThrow("""{ "0": 100, "1": 200, "2": 300 }""")
+
+// By default, the key is decoded into a string
+JD.mapOf(JD.int).invoke(json) == mapOf("0" to 100, "1" to 200, "2" to 300)
+// Or you can pass in decoders for both the key and value
+JD.mapOf(JD.int, JD.int).invoke(json) == mapOf(0 to 100, 1 to 200, 2 to 300)
+```
 
 ### Inconsistent Structure
 
