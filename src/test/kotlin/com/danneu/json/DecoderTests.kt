@@ -376,12 +376,68 @@ class DecoderTests {
         ))
     }
 
-    // Handle annoying blockcypher api: https://dl.dropboxusercontent.com/spa/quq37nq1583x0lf/vwctnt01.png
+    @Test
+    fun testSingleton () {
+        val decoder = Decoder.singletonOf(Decoder.int)
+        assertEquals("parses singleton", 42, Decoder.decodeOrThrow("[42]", decoder))
+        assertEquals("fails if empty array", "failed", try {
+            Decoder.decodeOrThrow("[]", decoder)
+        } catch (e: DecodeException) { "failed" })
+        assertEquals("fails if array has more than one item", "failed", try {
+            Decoder.decodeOrThrow("[1, 2]", decoder)
+        } catch (e: DecodeException) { "failed" })
+    }
+
+    // Handle blockcypher api: https://dl.dropboxusercontent.com/spa/quq37nq1583x0lf/vwctnt01.png
     @Test
     fun testTrueOrMissing() {
         val decoder = Decoder.getOrMissing("key", false, Decoder.bool)
         assertEquals(true, Decoder.decodeOrThrow("""{"key": true}""", decoder))
         assertEquals(false, Decoder.decodeOrThrow("{}", decoder))
+    }
+
+    // Handle minizinc sets: `nums: [1, 3, 5]` (non-contiguous) vs `nums: [[1, 3]]` (contiguous 1 to 3)
+    @Test
+    fun testMiniZinc () {
+        data class Zinc (val nums: Set<Int>)
+
+        val decoder = Decoder.map(
+            ::Zinc,
+            Decoder.get("nums",
+                Decoder.listOf(
+                    Decoder.oneOf(
+                        // [1, 3, 5]
+                        Decoder.int.map { listOf(it) },
+                        // [[1, 5]]
+                        Decoder.pairOf(Decoder.int, Decoder.int).map { (start, end) -> (start..end) }
+                    )
+                ).map { xs -> xs.flatten().toSet() }
+            )
+        )
+
+        assertEquals(
+            "parses list",
+            Zinc(setOf(1, 3, 5)),
+            Decoder.decodeOrThrow("""{ "nums": [1, 3, 5] }""", decoder)
+        )
+
+        assertEquals(
+            "parses range",
+            Zinc(setOf(1, 2, 3, 4, 5)),
+            Decoder.decodeOrThrow("""{ "nums": [[1, 5]] }""", decoder)
+        )
+
+        assertEquals(
+            "parses both",
+            Zinc(setOf(1, 3, 4, 5, 7)),
+            Decoder.decodeOrThrow("""{ "nums": [1, [3, 5], 7] }""", decoder)
+        )
+
+        assertEquals(
+            "fails as expected",
+            "failed",
+            try { Decoder.decodeOrThrow("""{ "nums": 42 }""", decoder) } catch (e: DecodeException) { "failed" }
+        )
     }
 }
 

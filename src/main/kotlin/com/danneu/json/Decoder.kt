@@ -222,6 +222,22 @@ class Decoder <out T> (private val decode: (JsonValue) -> Result<T, String>) {
 
         fun <V> mapOf(valueDecoder: Decoder<V>) = Decoder.mapOf(Decoder.string, valueDecoder)
 
+        fun <A> singletonOf(decoder: Decoder<A>) = Decoder { jsonValue ->
+            when {
+                jsonValue.underlying.isArray -> {
+                    jsonValue.underlying.asArray().let { array ->
+                        if (array.size() == 1) {
+                            decoder(JsonValue(array[0]))
+                        } else {
+                            Result.err("Expected array of one item but got one with ${array.size()} items")
+                        }
+                    }
+                }
+                else ->
+                    Result.err("Expected array but got ${jsonValue.underlying.javaClass.simpleName}")
+            }
+        }
+
         fun <A, B> pairOf(left: Decoder<A>, right: Decoder<B>): Decoder<Pair<A, B>> = Decoder { jsonValue ->
             when {
                 jsonValue.underlying.isArray -> {

@@ -29,7 +29,7 @@ JSON decode/encode combinators for Kotlin.
     + [`.nullable()`](#nullable)
   * [JSON Arrays](#json-arrays)
     + [`.listOf()`, `.arrayOf()`](#listof-arrayof)
-    + [`.pairOf()`, `.tripleOf()`](#pairof-tripleof)
+    + [`.singletonOf()`, `.pairOf()`, `.tripleOf()`](#singletonof-pairof-tripleof)
     + [`.index()`](#index)
   * [JSON Objects](#json-objects)
     + [`.get()`](#get)
@@ -278,11 +278,15 @@ val decoder = JD.listOf(JD.int)
 JD.decodeOrThrow("[1, 2, 3]", decoder) == listOf(1, 2, 3)
 ```
 
-#### `.pairOf()`, `.tripleOf()`
+#### `.singletonOf()`, `.pairOf()`, `.tripleOf()`
 
-Decode a JSON array into a Kotlin pair or triple.
+Decode a fixed-length JSON array of size one, two, or three.
+
+Fails if the array is not the expected length.
 
 ```kotlin
+JD.decodeOrThrow("""[2]""", JD.singletonOf(JD.int)) == 42
+
 val pairDecoder = JD.pairOf(JD.int, JD.string)
 JD.decodeOrThrow("""[2, "foo"]""", pairDecoder) == Pair(2, "foo")
 
